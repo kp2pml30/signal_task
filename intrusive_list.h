@@ -48,6 +48,7 @@ namespace intrusive
         }
         list_element& operator=(list_element&& r)
         {
+            unlink();
             next = r.next;
             prev = r.prev;
             if (next != nullptr)
