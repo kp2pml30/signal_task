@@ -26,6 +26,8 @@ struct signal<void (Args...)>
         signal* parent;
         intrusive::list<iteration_data, walker_list_tag> lst;
         std::function<void (Args...)> slot; // noexcept constructible since 2020
+
+        connection(signal* parent, std::function<void (Args...)>&& slot) noexcept : parent(parent), slot(std::move(slot)) {}
     public:
         connection() = default;
         ~connection()
@@ -37,7 +39,7 @@ struct signal<void (Args...)>
         {
             auto next = super::unlink();
             auto asit = next == nullptr ? parent->lst.end() : intrusive::list<connection, connection_list_tag>::to_iterator(*next);
-            for (auto &a : lst)
+            for (auto& a : lst)
             {
                 a.deleted = true;
                 a.held = asit;
@@ -52,6 +54,8 @@ struct signal<void (Args...)>
         {
             super::operator=(std::move(static_cast<super&>(r)));
             lst = std::move(r.lst);
+            for (auto& a : lst)
+                a.held = intrusive::list<connection, connection_list_tag>::to_iterator(*this);
         }
 
         connection(connection const&) = delete;
@@ -90,9 +94,7 @@ struct signal<void (Args...)>
 
     connection connect(std::function<void (Args...)> slot) noexcept
     {
-        connection ret;
-        ret.parent = this;
-        ret.slot = std::move(slot);
+        auto ret = connection(this, std::move(slot));
         lst.push_front(ret);
 
         return ret;
